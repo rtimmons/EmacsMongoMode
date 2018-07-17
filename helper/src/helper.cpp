@@ -41,32 +41,50 @@ public:
         auto doc = bsoncxx::from_json(json);
         auto view = doc.view();
         std::string oper = bsoncxx::string::to_string(view["Oper"].get_utf8().value);
-        auto params = view["Params"].get_document();
 
-//        TD<decltype(params)> pTyp;
-
-        if (oper == "database") {
-            return this->db(params.view());
+        if (oper == "setDatabase") {
+            this->_dbName = bsoncxx::string::to_string(view["Params"]["Value"].get_utf8().value);
+            this->reset();
+            return Status::OK;
         }
+        if (oper == "setCollection") {
+            this->_collName = bsoncxx::string::to_string(view["Params"]["Value"].get_utf8().value);
+            this->reset();
+            return Status::OK;
+        }
+        if (oper == "setUri") {
+            this->_uri = bsoncxx::string::to_string(view["Params"]["Value"].get_utf8().value);
+            this->reset();
+            return Status::OK;
+        }
+
         if (oper == "find") {
-            return this->find(params.view());
+            return this->find(view["Params"].get_document().view());
         }
+        if (oper == "runCommand") {
+            return this->runCommand(view["Params"].get_document().view());
+        }
+        if (oper == "Ping") {
+            return this->runCommand(bsoncxx::from_json("{\"Command\": {\"ping\":1}}"));
+        }
+
         return Status::FAIL;
     }
 
 private:
-    Status db(bsoncxx::document::view params) {
-        this->_dbName = bsoncxx::string::to_string(params["Name"].get_utf8().value);
-        this->reset();
-        return Status::OK;
-    }
-
     Status find(bsoncxx::document::view params) {
         auto query = params["Query"].get_document();
         mongocxx::cursor cur = this->_collection.find(query.view());
         for(auto& doc : cur) {
-            std::cout << bsoncxx::to_json(doc) << std::endl;
+            this->_out << bsoncxx::to_json(doc) << std::endl;
         }
+        return Status::OK;
+    }
+
+    Status runCommand(bsoncxx::document::view params) {
+        auto command = params["Command"].get_document();
+        auto out = this->_db.run_command(command.view());
+        this->_out << bsoncxx::to_json(out) << std::endl;
         return Status::OK;
     }
 
@@ -85,26 +103,5 @@ int main(int argc, char** argv) {
 
     for (std::string line; std::getline(std::cin, line);) {
         s.op(line);
-//        if (line == "db") {
-//            std::getline(std::cin, line);
-//            db = client[line];
-//            std::cout << "db " << line << " OK" << std::endl;
-//        }
-//        else if (line == "collection") {
-//            std::getline(std::cin, line);
-//            collection = db[line];
-//            std::cout << "collection " << line << " OK" << std::endl;
-//        }
-//        else if (line == "find") {
-//            std::getline(std::cin, line);
-//            mongocxx::cursor cur = collection.find(bsoncxx::from_json(line));
-//            for(auto& doc : cur) {
-//                std::cout << bsoncxx::to_json(doc) << std::endl;
-//            }
-//            std::cout << "OK" << std::endl;
-//        }
-//        else {
-//            std::cout << "Unknown " << line << " FAIL" << std::endl;
-//        }
     }
 }
