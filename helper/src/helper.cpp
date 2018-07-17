@@ -67,11 +67,19 @@ public:
         if (oper == "Ping") {
             return this->runCommand(bsoncxx::from_json("{\"Command\": {\"ping\":1}}"));
         }
+        if (oper == "InsertOne") {
+            return this->insertOne(view["Params"].get_document().view());
+        }
 
         return Status::FAIL;
     }
 
 private:
+    Status insertOne(bsoncxx::document::view params) {
+        auto res = this->_collection.insert_one(params["Document"].get_document().view());
+        return Status::OK;
+    }
+
     Status find(bsoncxx::document::view params) {
         auto query = params["Query"].get_document();
         mongocxx::cursor cur = this->_collection.find(query.view());
